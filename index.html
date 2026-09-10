@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tradone</title>
+    <meta
+      name="description"
+      content="Local-first portfolio dashboard — your data stays encrypted on this device."
+    />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#170b0d" />
+    <link rel="icon" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="global-loading-bar" class="global-loading-bar" aria-hidden="true"></div>
+
+    <div id="auth-gate" class="auth-gate">
+      <div class="auth-box">
+        <div class="logo">
+          <svg class="logo-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M3 17L9 11L13 15L21 6" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M15 6H21V12" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span class="logo-text">Tradone</span>
+        </div>
+        <h1 id="auth-heading" data-i18n="auth.heading">Log in</h1>
+        <p class="auth-sub" id="auth-sub" data-i18n="auth.sub">Your account is stored locally on this device only.</p>
+
+        <!-- A vault already exists on this device — just needs the passphrase. -->
+        <form id="unlock-form" class="account-form" style="display:none">
+          <label>
+            <span>Passphrase</span>
+            <input id="unlock-passphrase" type="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit" class="avanza-btn">Unlock</button>
+        </form>
+
+        <!-- First run on this device: create a new vault, or import from the
+             existing (unmodified) Tradone app's local server. -->
+        <div id="first-run-choice" style="display:none">
+          <button type="button" id="choose-create-btn" class="avanza-btn">Create a new vault</button>
+          <button type="button" id="choose-import-btn" class="link-btn" style="margin-top:10px">Import from your existing Tradone</button>
+        </div>
+
+        <form id="create-form" class="account-form" style="display:none">
+          <p class="avanza-note">Choose a passphrase. It never leaves this device and cannot be recovered if lost — write it down somewhere safe.</p>
+          <label>
+            <span>Passphrase</span>
+            <input id="create-passphrase" type="password" autocomplete="new-password" minlength="8" required />
+          </label>
+          <label>
+            <span>Confirm passphrase</span>
+            <input id="create-passphrase-confirm" type="password" autocomplete="new-password" minlength="8" required />
+          </label>
+          <button type="submit" class="avanza-btn">Create vault</button>
+          <button type="button" id="create-back-btn" class="link-btn">Back</button>
+        </form>
+
+        <form id="import-form" class="account-form" style="display:none">
+          <p class="avanza-note">Point this at your existing Tradone server (still running locally) to bring your accounts and expenses into this device's encrypted vault. Your trade journal is not imported — this build has no Trading tab.</p>
+          <label>
+            <span>Old server URL</span>
+            <input id="import-server-url" type="text" value="http://localhost:3001" required />
+          </label>
+          <label>
+            <span>Old username</span>
+            <input id="import-username" type="text" autocomplete="username" required />
+          </label>
+          <label>
+            <span>Old password</span>
+            <input id="import-password" type="password" autocomplete="current-password" required />
+          </label>
+          <label>
+            <span>New passphrase (for this device's vault)</span>
+            <input id="import-new-passphrase" type="password" autocomplete="new-password" minlength="8" required />
+          </label>
+          <label>
+            <span>Confirm new passphrase</span>
+            <input id="import-new-passphrase-confirm" type="password" autocomplete="new-password" minlength="8" required />
+          </label>
+          <button type="submit" class="avanza-btn">Import &amp; create vault</button>
+          <button type="button" id="import-back-btn" class="link-btn">Back</button>
+        </form>
+
+        <p id="auth-error" class="auth-error"></p>
+      </div>
+    </div>
+
+    <div class="app-shell" id="app-shell" style="display:none">
+      <nav class="app-nav" id="app-nav">
+        <button type="button" class="app-nav-btn active" data-page="portfolio" data-i18n="nav.portfolio">Portfolio</button>
+        <button type="button" class="app-nav-btn" data-page="expenses" data-i18n="nav.expenses">Expenses</button>
+      </nav>
+
+      <button type="button" id="settings-gear-btn" class="settings-gear-btn" data-page="settings" data-i18n-title="nav.settings" data-i18n-aria-label="nav.settings" title="Settings" aria-label="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.8" />
+          <path d="M19.4 13.5a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V19.5a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.04-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.04H4.5a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.04 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H10.5a1.7 1.7 0 0 0 1.04-1.56V4.5a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V10.5a1.7 1.7 0 0 0 1.56 1.04h.09a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.04Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+        </svg>
+      </button>
+
+      <section id="page-portfolio" class="app-page">
+      <header class="hero">
+        <div>
+          <div class="logo">
+            <svg class="logo-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M3 17L9 11L13 15L21 6" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M15 6H21V12" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span class="logo-text">Tradone</span>
+          </div>
+          <p class="eyebrow" data-i18n="hero.eyebrow">Portfolio dashboard</p>
+          <h1 data-i18n="hero.title">Monitor your crypto and broker positions in one place.</h1>
+          <p class="hero-copy" data-i18n="hero.copy">
+            Add wallet addresses, brokerage accounts, and track your current balance at a glance.
+          </p>
+          <div class="user-badge">
+            <svg class="user-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" stroke="#34d399" stroke-width="2" />
+              <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="#34d399" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <span>Vault unlocked on this device</span>
+          </div>
+          <button type="button" id="logout-btn" class="link-btn" style="margin-top:10px">Lock vault</button>
+        </div>
+        <div class="hero-card">
+          <div class="hero-card-top">
+            <p data-i18n="heroCard.totalPortfolio">Total portfolio</p>
+            <div class="hero-card-top-actions">
+            <button
+              type="button"
+              class="privacy-toggle-btn"
+              id="privacy-toggle-btn"
+              data-i18n-title="heroCard.hideBalances"
+              title="Hide balances"
+              aria-pressed="false"
+            >
+              <svg class="privacy-eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
+              </svg>
+              <svg class="privacy-eye-off-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M3 3l18 18M10.6 5.2A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.9 8.3 2 12 2 12s3.6 7 10 7a10.6 10.6 0 0 0 4.1-.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <div class="currency-dropdown" id="currency-dropdown">
+              <button
+                type="button"
+                class="currency-dropdown-btn"
+                id="currency-dropdown-btn"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                data-i18n-title="heroCard.displayCurrency"
+                title="Display currency"
+              >
+                <span id="currency-dropdown-label">USD $</span>
+                <svg class="dropdown-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <ul class="currency-dropdown-menu" id="currency-dropdown-menu" role="listbox" aria-label="Display currency">
+                <li role="option" data-value="USD" data-symbol="$">USD<span class="currency-symbol">$</span></li>
+                <li role="option" data-value="EUR" data-symbol="€">EUR<span class="currency-symbol">€</span></li>
+                <li role="option" data-value="GBP" data-symbol="£">GBP<span class="currency-symbol">£</span></li>
+                <li role="option" data-value="CAD" data-symbol="$">CAD<span class="currency-symbol">$</span></li>
+                <li role="option" data-value="AUD" data-symbol="$">AUD<span class="currency-symbol">$</span></li>
+                <li role="option" data-value="JPY" data-symbol="¥">JPY<span class="currency-symbol">¥</span></li>
+                <li role="option" data-value="CHF" data-symbol="Fr">CHF<span class="currency-symbol">Fr</span></li>
+                <li role="option" data-value="SEK" data-symbol="kr">SEK<span class="currency-symbol">kr</span></li>
+              </ul>
+            </div>
+            </div>
+          </div>
+          <strong id="total-portfolio">$0</strong>
+          <span id="account-count">0 accounts connected</span>
+        </div>
+      </header>
+
+      <main class="content-grid">
+        <aside class="panel form-panel">
+          <h2 data-i18n="addAccount.heading">Add account</h2>
+          <p class="avanza-note" data-i18n="addAccount.note">Choose a type to connect it live — positions merge straight into your accounts below.</p>
+          <div class="account-form">
+            <label>
+              <span data-i18n="addAccount.typeLabel">Account type</span>
+              <select id="new-account-type">
+                <option value="crypto" data-i18n="accountType.crypto">Crypto wallet</option>
+                <option value="broker" data-i18n="accountType.broker">Broker account</option>
+                <option value="bank" data-i18n="accountType.bank">Bank account</option>
+                <option value="savings" data-i18n="accountType.savings">Savings account</option>
+                <option value="investment" data-i18n="accountType.investment">Investment account</option>
+                <option value="retirement" data-i18n="accountType.retirement">Retirement account</option>
+                <option value="other" data-i18n="accountType.other">Other</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- Crypto: chain auto-detected from address format, or enter the position by hand -->
+          <div id="crypto-subsection" class="avanza-section">
+            <p class="avanza-note" data-i18n="crypto.note">Paste any wallet address — Ethereum, BNB Smart Chain, Optimism, Solana, NEAR, XRP, Litecoin, Stellar, or TON — the chain is detected automatically and merged into your Crypto Portfolio card. A 0x&hellip; address is checked against Ethereum, BNB Smart Chain, and Optimism together, since the same address can hold funds on all three.</p>
+            <form id="wallet-form" class="account-form">
+              <label>
+                <span data-i18n="crypto.walletAddressLabel">Wallet address</span>
+                <input id="wallet-address" type="text" placeholder="0x..., Solana, NEAR, r..., G..., etc." spellcheck="false" required />
+              </label>
+              <button type="submit" id="wallet-load-btn" class="avanza-btn" data-i18n="crypto.loadWalletBtn">Load wallet</button>
+            </form>
+
+            <button type="button" id="crypto-manual-toggle-btn" class="link-btn" style="margin-top:10px" data-i18n="crypto.manualToggle">Enter values manually instead</button>
+            <form id="crypto-manual-form" class="account-form" style="display:none">
+              <label>
+                <span data-i18n="common.displayName">Display name</span>
+                <input id="crypto-manual-name" type="text" data-i18n-placeholder="crypto.manualNamePlaceholder" placeholder="Example: Cold storage BTC" />
+              </label>
+              <label>
+                <span data-i18n="crypto.coinSymbolLabel">Coin symbol</span>
+                <input id="manual-coin-symbol" type="text" placeholder="BTC" spellcheck="false" />
+              </label>
+              <label>
+                <span data-i18n="crypto.coinAmountLabel">Amount of coins</span>
+                <input id="manual-coin-amount" type="text" inputmode="decimal" placeholder="0.00000001" spellcheck="false" />
+              </label>
+              <label>
+                <span data-i18n="crypto.coingeckoLabel">CoinGecko link (optional)</span>
+                <input id="manual-coingecko-url" type="url" placeholder="https://www.coingecko.com/en/coins/bitcoin" spellcheck="false" />
+              </label>
+              <p class="avanza-note" style="margin:0" data-i18n="crypto.coingeckoNote">If given, the current value is looked up automatically from that coin's live price — leave the value below blank.</p>
+              <label>
+                <span id="manual-balance-label" data-i18n="crypto.currentValueLabel">Current value (USD)</span>
+                <input id="crypto-manual-balance" type="number" step="any" placeholder="2500" />
+              </label>
+              <button type="submit" class="avanza-btn" data-i18n="crypto.addPositionBtn">Add crypto position</button>
+            </form>
+
+            <button type="button" id="crypto-sale-toggle-btn" class="link-btn" style="margin-top:10px" data-i18n="crypto.logSaleToggle">Log a sale</button>
+            <form id="crypto-sale-form" class="account-form" style="display:none">
+              <p class="avanza-note" style="margin:0" data-i18n="crypto.logSaleNote">Wallet activity can't reliably tell a sale apart from a transfer to your own wallet, a swap, or a staking deposit — so sales are logged by hand here instead of detected automatically.</p>
+              <label>
+                <span data-i18n="crypto.coinSymbolLabel">Coin symbol</span>
+                <input id="crypto-sale-symbol" type="text" placeholder="BTC" spellcheck="false" required />
+              </label>
+              <label>
+                <span data-i18n="crypto.saleDateLabel">Date sold</span>
+                <input id="crypto-sale-date" type="date" required />
+              </label>
+              <label>
+                <span data-i18n="crypto.saleQuantityLabel">Quantity sold</span>
+                <input id="crypto-sale-quantity" type="text" inputmode="decimal" placeholder="0.5" spellcheck="false" required />
+              </label>
+              <label>
+                <span data-i18n="crypto.saleBuyPriceLabel">Buy price per coin (USD)</span>
+                <input id="crypto-sale-buy-price" type="number" step="any" min="0" placeholder="30000" required />
+              </label>
+              <label>
+                <span data-i18n="crypto.saleSellPriceLabel">Sale price per coin (USD)</span>
+                <input id="crypto-sale-sell-price" type="number" step="any" min="0" placeholder="42000" required />
+              </label>
+              <button type="submit" class="avanza-btn" data-i18n="crypto.logSaleBtn">Log sale</button>
+            </form>
+          </div>
+
+          <!-- Broker: Avanza BankID (QR) or username/password + TOTP flow -->
+          <div id="broker-subsection" style="display:none">
+            <div id="avanza-login" class="avanza-section">
+              <div id="avanza-bankid-chooser">
+                <p class="avanza-note" data-i18n="broker.bankidNote">Scan the QR code with the BankID app on your phone to log in.</p>
+                <button type="button" id="avanza-bankid-start-btn" class="avanza-btn" data-i18n="broker.showBankidBtn">Show BankID QR code</button>
+                <button type="button" id="avanza-toggle-password-btn" class="link-btn" style="margin-top:10px" data-i18n="broker.usePasswordInstead">Use username/password instead</button>
+              </div>
+
+              <form id="avanza-form" class="account-form" style="display:none">
+                <p class="avanza-note" data-i18n="broker.totpNote">Requires TOTP-based two-factor authentication to be enabled on your Avanza account (not BankID/SMS).</p>
+                <label>
+                  <span data-i18n="common.username">Username</span>
+                  <input id="avanza-username" type="text" placeholder="Avanza username" autocomplete="username" required />
+                </label>
+                <label>
+                  <span data-i18n="common.password">Password</span>
+                  <input id="avanza-password" type="password" placeholder="Avanza password" autocomplete="current-password" required />
+                </label>
+                <label>
+                  <span data-i18n="broker.totpLabel">2FA code</span>
+                  <input id="avanza-totp" type="text" inputmode="numeric" placeholder="123456" autocomplete="one-time-code" required />
+                </label>
+                <button type="submit" class="avanza-btn" data-i18n="common.logIn">Log in</button>
+                <button type="button" id="avanza-back-to-bankid-btn" class="link-btn" style="margin-top:10px" data-i18n="broker.useBankidInstead">Use BankID instead</button>
+              </form>
+            </div>
+
+            <div id="avanza-waiting" class="avanza-section" style="display:none">
+              <div class="avanza-waiting-inner" id="avanza-waiting-spinner">
+                <div class="spinner"></div>
+                <p data-i18n="broker.connectingToAvanza">Connecting to Avanza&hellip;</p>
+              </div>
+              <div id="avanza-waiting-qr" style="display:none; text-align:center">
+                <img id="avanza-bankid-qr" alt="BankID QR code" width="220" height="220" style="border-radius:12px" />
+                <p class="avanza-note" id="avanza-bankid-hint" data-i18n="broker.bankidHint">Open BankID on your phone and scan the code.</p>
+                <button type="button" id="avanza-bankid-cancel-btn" class="link-btn" data-i18n="common.cancel">Cancel</button>
+              </div>
+            </div>
+
+            <div id="avanza-connected" class="avanza-section" style="display:none">
+              <div class="avanza-connected-header">
+                <span class="badge connected-badge" data-i18n="common.connected">Connected</span>
+              </div>
+              <p class="avanza-note" id="avanza-accounts-label" data-i18n="broker.fetchingAccounts">Fetching accounts&hellip;</p>
+              <button id="avanza-refresh-btn" class="avanza-btn" data-i18n="broker.refreshAccountsBtn">Refresh accounts</button>
+              <button id="avanza-disconnect-btn" class="avanza-btn avanza-btn-secondary" data-i18n="common.disconnect">Disconnect</button>
+            </div>
+
+            <!-- Kept outside avanza-login/waiting/connected so it's reachable
+                 whether or not a live Avanza session is already connected. -->
+            <button type="button" id="broker-manual-toggle-btn" class="link-btn" style="margin-top:10px" data-i18n="broker.manualToggle">Enter account manually instead</button>
+            <form id="broker-manual-form" class="account-form" style="display:none">
+              <label>
+                <span data-i18n="common.displayName">Display name</span>
+                <input id="broker-manual-name" type="text" data-i18n-placeholder="broker.mainBrokeragePlaceholder" placeholder="Example: Main brokerage" required />
+              </label>
+              <label>
+                <span data-i18n="broker.manualIdLabel">Wallet ID or account ID</span>
+                <input id="broker-manual-id" type="text" placeholder="0x... or SE12345" />
+              </label>
+              <label>
+                <span data-i18n="common.balance">Balance</span>
+                <input id="broker-manual-balance" type="number" step="any" placeholder="2500" required />
+              </label>
+              <button type="submit" class="avanza-btn" data-i18n="broker.addAccountBtn">Add broker account</button>
+            </form>
+          </div>
+
+          <!-- PayPal: a Business account's own REST API credentials — the relay
+               is stateless (see server.js), so the resulting session is stored
+               in this device's own encrypted vault, not held server-side.
+               PayPal has no personal-login equivalent of Avanza's BankID, since
+               only a Business account's own API app can read a balance at all. -->
+          <div id="paypal-subsection" style="display:none">
+            <div id="paypal-login" class="avanza-section">
+              <p class="avanza-note" data-i18n-html="paypal.note">Requires a PayPal <strong>Business</strong> account with a REST API app — create one at developer.paypal.com and paste its Client ID and Secret below. Personal PayPal accounts have no API for reading a balance.</p>
+              <form id="paypal-form" class="account-form">
+                <label>
+                  <span data-i18n="paypal.clientIdLabel">Client ID</span>
+                  <input id="paypal-client-id" type="text" data-i18n-placeholder="paypal.clientIdPlaceholder" placeholder="PayPal REST API Client ID" autocomplete="off" spellcheck="false" required />
+                </label>
+                <label>
+                  <span data-i18n="paypal.clientSecretLabel">Client Secret</span>
+                  <input id="paypal-client-secret" type="password" data-i18n-placeholder="paypal.clientSecretPlaceholder" placeholder="PayPal REST API Secret" autocomplete="off" required />
+                </label>
+                <label>
+                  <span data-i18n="paypal.envLabel">Environment</span>
+                  <select id="paypal-env">
+                    <option value="live" data-i18n="paypal.envLive">Live</option>
+                    <option value="sandbox" data-i18n="paypal.envSandbox">Sandbox</option>
+                  </select>
+                </label>
+                <button type="submit" class="avanza-btn" data-i18n="paypal.connectBtn">Connect PayPal</button>
+              </form>
+            </div>
+
+            <div id="paypal-waiting" class="avanza-section" style="display:none">
+              <div class="avanza-waiting-inner">
+                <div class="spinner"></div>
+                <p data-i18n="paypal.connecting">Connecting to PayPal&hellip;</p>
+              </div>
+            </div>
+
+            <div id="paypal-connected" class="avanza-section" style="display:none">
+              <div class="avanza-connected-header">
+                <span class="badge connected-badge" data-i18n="common.connected">Connected</span>
+              </div>
+              <p class="avanza-note" id="paypal-balance-label" data-i18n="paypal.fetchingBalance">Fetching balance&hellip;</p>
+              <button id="paypal-refresh-btn" class="avanza-btn" data-i18n="paypal.refreshBalanceBtn">Refresh balance</button>
+              <button id="paypal-disconnect-btn" class="avanza-btn avanza-btn-secondary" data-i18n="common.disconnect">Disconnect</button>
+            </div>
+          </div>
+
+          <!-- Bank/savings/investment/retirement/other: a flat balance,
+               no live data source — entered in whatever currency the
+               portfolio is currently displaying in, so it always matches the
+               rest of the dashboard without a currency field of its own. -->
+          <div id="flat-subsection" class="avanza-section" style="display:none">
+            <p class="avanza-note" data-i18n="flat.note">Add this account with its own balance.</p>
+            <form id="flat-form" class="account-form">
+              <label>
+                <span data-i18n="common.displayName">Display name</span>
+                <input id="flat-name" type="text" data-i18n-placeholder="flat.namePlaceholder" placeholder="Example: Everyday savings" required />
+              </label>
+              <label>
+                <span><span data-i18n="common.balance">Balance</span> (<span id="flat-balance-currency">USD</span>)</span>
+                <input id="flat-balance" type="number" step="any" placeholder="2500" required />
+              </label>
+              <p class="avanza-note" id="flat-currency-note">Values are entered in USD — the portfolio's current display currency. Change it with the currency switcher above the total.</p>
+              <label id="flat-annual-return-wrap" style="display:none">
+                <span data-i18n="flat.annualReturnLabel">Expected annual return (%)</span>
+                <input id="flat-annual-return" type="number" step="any" placeholder="7" required />
+              </label>
+              <p class="avanza-note" id="flat-annual-return-note" style="display:none" data-i18n="flat.annualReturnNote">Used to estimate this account's everyday return, shown on its card below.</p>
+              <button type="submit" class="avanza-btn" data-i18n="flat.addAccountBtn">Add account</button>
+            </form>
+          </div>
+        </aside>
+
+        <section class="panel" id="accounts-panel">
+          <div class="panel-resize-handle" id="form-panel-resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize account-form and accounts panels" tabindex="0"></div>
+          <div class="section-heading">
+            <h2 data-i18n="accounts.heading">Your accounts</h2>
+            <p data-i18n="accounts.sub">Live overview of tracked positions</p>
+          </div>
+          <div id="accounts-list" class="accounts-list"></div>
+        </section>
+
+        <aside class="panel news-panel">
+          <div class="panel-resize-handle" id="news-panel-resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize accounts and news panels" tabindex="0"></div>
+          <div class="section-heading">
+            <h2 data-i18n="news.heading">Portfolio news</h2>
+            <button type="button" id="news-refresh-btn" class="link-btn" data-i18n="news.refresh">Refresh</button>
+          </div>
+          <div class="news-controls">
+            <p class="avanza-note" data-i18n="news.sub">Latest headlines for what you hold</p>
+            <div class="news-sort-select" id="news-sort-wrap">
+              <span data-i18n="news.sortLabel">Sort</span>
+            </div>
+          </div>
+          <div id="news-key-prompt" class="news-finnhub-prompt" style="display:none">
+            <p class="avanza-note" id="news-key-prompt-text"></p>
+            <button type="button" id="news-open-settings-btn" class="link-btn" data-i18n="news.openSettings">Open Settings</button>
+          </div>
+          <div id="news-list" class="news-list">
+            <p class="empty-state" id="news-empty-state" data-i18n="news.empty">No news yet — add a wallet, broker account, or coin to see headlines here.</p>
+          </div>
+        </aside>
+      </main>
+      </section>
+
+      <section id="page-expenses" class="app-page" style="display:none">
+        <div class="content-grid">
+          <aside class="panel form-panel">
+            <h2 data-i18n="expenses.addHeading">Add expense</h2>
+            <p class="avanza-note" data-i18n="expenses.addNote">Log a purchase — it's grouped into the category breakdown for whatever period you're looking at below.</p>
+            <form id="expense-form" class="account-form">
+              <label>
+                <span data-i18n="expenses.typeLabel">Type</span>
+                <div class="expense-type-toggle" role="group" aria-label="Transaction type">
+                  <button type="button" class="expense-type-btn active" data-type="expense" data-i18n="expenses.typeExpense">Expense</button>
+                  <button type="button" class="expense-type-btn" data-type="earning" data-i18n="expenses.typeEarning">Earning</button>
+                </div>
+              </label>
+              <label>
+                <span data-i18n="expenses.categoryLabel">Category</span>
+                <select id="expense-category"></select>
+              </label>
+              <label>
+                <span data-i18n="expenses.descriptionLabel">Description (optional)</span>
+                <input id="expense-description" type="text" data-i18n-placeholder="expenses.descriptionPlaceholder" placeholder="Example: Weekly grocery run" />
+              </label>
+              <label>
+                <span><span data-i18n="expenses.amountLabel">Amount</span> (<span id="expense-amount-currency">USD</span>)</span>
+                <input id="expense-amount" type="number" step="any" placeholder="45.00" required />
+              </label>
+              <label>
+                <span data-i18n="expenses.dateLabel">Date</span>
+                <button type="button" id="expense-date-trigger" class="edit-field-date-trigger" data-date="">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2" />
+                    <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                  <span class="edit-field-date-trigger-label">Select date</span>
+                </button>
+              </label>
+              <label>
+                <span data-i18n="expenses.accountLabel">Account (optional)</span>
+                <select id="expense-account"></select>
+              </label>
+              <p class="avanza-note" id="expense-account-note" data-i18n="expenses.accountNote">Linking an account deducts (or adds, for an earning) this amount from its balance and refreshes its daily return estimate.</p>
+              <button type="submit" class="avanza-btn" data-i18n="expenses.addExpenseBtn">Add expense</button>
+            </form>
+          </aside>
+
+          <section class="panel">
+            <div class="section-heading">
+              <h2 data-i18n="expenses.spendingOverviewHeading">Spending overview</h2>
+              <div class="expense-overview-controls">
+                <div class="expense-view-toggle" id="expense-breakdown-filter-toggle" role="group" aria-label="Breakdown filter">
+                  <button type="button" class="expense-filter-btn active" data-filter="expense" data-i18n="expenses.filterExpenses">Expenses</button>
+                  <button type="button" class="expense-filter-btn" data-filter="earning" data-i18n="expenses.filterEarnings">Earnings</button>
+                </div>
+                <label class="expense-period-select">
+                  <span class="sr-only" data-i18n="expenses.periodLabel">Period</span>
+                  <select id="expense-period">
+                    <option value="week" data-i18n="expenses.periodWeek">This week</option>
+                    <option value="month" data-i18n="expenses.periodMonth">This month</option>
+                    <option value="all" data-i18n="expenses.periodAll">All time</option>
+                    <option value="custom" data-i18n="expenses.periodCustom">Custom range</option>
+                  </select>
+                </label>
+                <div class="expense-view-toggle" role="group" aria-label="Breakdown view">
+                  <button type="button" class="expense-view-btn active" data-view="list" data-i18n="expenses.viewList">List</button>
+                  <button type="button" class="expense-view-btn" data-view="wheel" data-i18n="expenses.viewWheel">Wheel</button>
+                  <button type="button" class="expense-view-btn" data-view="calendar" data-i18n="expenses.viewCalendar">Calendar</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="expense-custom-range" class="expense-custom-range" style="display:none">
+              <label>
+                <span data-i18n="expenses.fromLabel">From</span>
+                <button type="button" id="expense-range-from-trigger" class="edit-field-date-trigger" data-date="">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2" />
+                    <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                  <span class="edit-field-date-trigger-label">Select date</span>
+                </button>
+              </label>
+              <label>
+                <span data-i18n="expenses.toLabel">To</span>
+                <button type="button" id="expense-range-to-trigger" class="edit-field-date-trigger" data-date="">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2" />
+                    <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                  <span class="edit-field-date-trigger-label">Select date</span>
+                </button>
+              </label>
+            </div>
+
+            <div class="stats-cards">
+              <div class="stat-card">
+                <div class="stat-label" data-i18n="expenses.totalSpent">Total spent</div>
+                <div class="stat-value" id="expense-total">$0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label" data-i18n="expenses.totalEarned">Total earned</div>
+                <div class="stat-value" id="expense-earned">$0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label" data-i18n="expenses.net">Net</div>
+                <div class="stat-value" id="expense-net">$0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label" data-i18n="expenses.dailyAverage">Daily average</div>
+                <div class="stat-value" id="expense-daily-avg">$0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label" data-i18n="expenses.entries">Entries</div>
+                <div class="stat-value" id="expense-entry-count">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label" data-i18n="expenses.topCategory">Top category</div>
+                <div class="stat-value" id="expense-top-category">&mdash;</div>
+              </div>
+            </div>
+
+            <div id="expense-breakdown" class="expense-breakdown"></div>
+
+            <hr class="panel-divider" />
+
+            <div class="section-heading">
+              <h2 data-i18n="expenses.entriesHeading">Entries</h2>
+              <div class="expense-entries-controls">
+                <p id="expense-entries-sub" data-i18n="expenses.entriesSub">In the selected period, newest first</p>
+                <label class="expense-entries-sort">
+                  <span data-i18n="news.sortLabel">Sort</span>
+                  <select id="expense-entries-sort">
+                    <option value="date" data-i18n="news.sortNewest">Newest first</option>
+                    <option value="category" data-i18n="expenses.sortByCategory">Category</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div id="expenses-list" class="accounts-list"></div>
+          </section>
+        </div>
+      </section>
+
+
+      <section id="page-settings" class="app-page" style="display:none">
+        <section class="panel settings-panel">
+          <div class="section-heading">
+            <h2 data-i18n="settings.heading">Display settings</h2>
+            <p data-i18n="settings.sub">Controls how numbers are formatted across the whole dashboard</p>
+          </div>
+          <div class="account-form">
+            <label>
+              <span data-i18n="settings.decimalPlacesLabel">Decimal places</span>
+              <select id="settings-decimals">
+                <option value="0" data-i18n="settings.decimalOption0">0 &mdash; e.g. $1,234</option>
+                <option value="1" data-i18n="settings.decimalOption1">1 &mdash; e.g. $1,234.5</option>
+                <option value="2" data-i18n="settings.decimalOption2">2 &mdash; e.g. $1,234.56</option>
+                <option value="3" data-i18n="settings.decimalOption3">3 &mdash; e.g. $1,234.567</option>
+                <option value="4" data-i18n="settings.decimalOption4">4 &mdash; e.g. $1,234.5678</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="settings.separatorLabel">Decimal separator</span>
+              <select id="settings-decimal-separator">
+                <option value="period" data-i18n="settings.separatorPeriod">Period &mdash; 1,234.56</option>
+                <option value="comma" data-i18n="settings.separatorComma">Comma &mdash; 1.234,56</option>
+                <option value="space" data-i18n="settings.separatorSpace">Space &mdash; 1 234.56</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="settings.languageLabel">Language</span>
+              <select id="settings-language">
+                <option value="en">English</option>
+                <option value="ru">Русский</option>
+                <option value="zh">中文</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="settings.stakedLabel">Staked crypto positions</span>
+              <select id="settings-staked-display">
+                <option value="merged" data-i18n="settings.stakedMerged">Merge with liquid balance &mdash; one combined row per coin</option>
+                <option value="separate" data-i18n="settings.stakedSeparate">Show separately &mdash; staked and liquid as their own rows</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="settings.weekStartLabel">Week starts on</span>
+              <select id="settings-week-start">
+                <option value="monday" data-i18n="settings.weekStartMonday">Monday</option>
+                <option value="sunday" data-i18n="settings.weekStartSunday">Sunday</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel settings-panel">
+          <div class="section-heading">
+            <h2 data-i18n="settings.newsHeading">Portfolio news</h2>
+            <p data-i18n="settings.newsSub">One free Finnhub API key covers both stock/ETF headlines (matched to what you hold) and general crypto market news.</p>
+          </div>
+          <form id="news-keys-form" class="account-form">
+            <p class="avanza-note" data-i18n-html="settings.finnhubNote">Get a free key at <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io/register</a> (no credit card).</p>
+            <label>
+              <span data-i18n="settings.finnhubKeyLabel">Finnhub API key</span>
+              <input id="settings-finnhub-key" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="settings.finnhubKeyPlaceholder" placeholder="Paste your key here" />
+            </label>
+            <button type="submit" class="avanza-btn" data-i18n="settings.newsKeysSave">Save key</button>
+          </form>
+        </section>
+      </section>
+
+    </div>
+
+    <script src="storage.js"></script>
+    <script src="app.js"></script>
+    <script>
+      // Registered last and best-effort — a browser with no service-worker
+      // support (or one that fails to register, e.g. non-secure origins
+      // other than localhost) still runs the app fully, just without the
+      // offline app-shell cache or "Install" prompt.
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('service-worker.js').catch((err) => {
+            console.error('Service worker registration failed:', err);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

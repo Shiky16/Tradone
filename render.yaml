@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: tradone-relay
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: COINGECKO_API_KEY
+        sync: false
+      - key: ETHERSCAN_API_KEY
+        sync: false
