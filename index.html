@@ -60,18 +60,10 @@
         </form>
 
         <form id="import-form" class="account-form" style="display:none">
-          <p class="avanza-note">Point this at your existing Tradone server (still running locally) to bring your accounts and expenses into this device's encrypted vault. Your trade journal is not imported — this build has no Trading tab.</p>
+          <p class="avanza-note">From your existing Tradone's project folder, run <code>node scripts/export-legacy-profile.js &lt;your-username&gt;</code> — it writes a file with your accounts and expenses, no server needs to be running. Upload that file below. Your trade journal is not imported — this build has no Trading tab.</p>
           <label>
-            <span>Old server URL</span>
-            <input id="import-server-url" type="text" value="http://localhost:3001" required />
-          </label>
-          <label>
-            <span>Old username</span>
-            <input id="import-username" type="text" autocomplete="username" required />
-          </label>
-          <label>
-            <span>Old password</span>
-            <input id="import-password" type="password" autocomplete="current-password" required />
+            <span>Exported profile file</span>
+            <input id="import-file" type="file" accept="application/json,.json" required />
           </label>
           <label>
             <span>New passphrase (for this device's vault)</span>

@@ -6133,14 +6133,31 @@ createForm.addEventListener('submit', (event) => {
 // that app's still-running local server exactly the way its own login form
 // does, pulls the profile once, and writes everything except the trading
 // journal (this build has no Trading tab) into a newly-created vault here.
+// File-based, not a live fetch to the old app's server — a page served over
+// HTTPS (as the deployed build is) can never fetch a plain-HTTP
+// localhost address; browsers block that outright ("mixed content"), no
+// workaround possible from this side. Reading a local file has no such
+// restriction and works identically whether this page is local or
+// deployed. See scripts/export-legacy-profile.js for the export half.
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Failed to read the file.'));
+    reader.readAsText(file);
+  });
+}
+
 importForm.addEventListener('submit', (event) => {
   event.preventDefault();
   authError.textContent = '';
-  const serverUrl = document.getElementById('import-server-url').value.trim().replace(/\/+$/, '');
-  const oldUsername = document.getElementById('import-username').value.trim();
-  const oldPassword = document.getElementById('import-password').value;
+  const file = document.getElementById('import-file').files[0];
   const passphrase = document.getElementById('import-new-passphrase').value;
   const confirmPassphrase = document.getElementById('import-new-passphrase-confirm').value;
+  if (!file) {
+    authError.textContent = 'Choose an exported profile file first.';
+    return;
+  }
   if (passphrase !== confirmPassphrase) {
     authError.textContent = 'Passphrases do not match.';
     return;
@@ -6148,19 +6165,12 @@ importForm.addEventListener('submit', (event) => {
 
   withLoading(async () => {
     try {
-      const loginRes = await fetch(`${serverUrl}/api/account/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: oldUsername, password: oldPassword })
-      });
-      const loginData = await loginRes.json();
-      if (!loginRes.ok) throw new Error(loginData.error || 'Could not log into your existing Tradone.');
-
-      const profileRes = await fetch(`${serverUrl}/api/account/profile`, {
-        headers: { Authorization: `Bearer ${loginData.token}` }
-      });
-      if (!profileRes.ok) throw new Error('Could not fetch your existing profile.');
-      const oldProfile = await profileRes.json();
+      let oldProfile;
+      try {
+        oldProfile = JSON.parse(await readFileAsText(file));
+      } catch {
+        throw new Error('That file doesn\'t look like a valid export — make sure it\'s the untouched output of export-legacy-profile.js.');
+      }
 
       await Vault.createVault(passphrase);
       await Vault.importProfileFields(oldProfile);

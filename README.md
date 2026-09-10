@@ -58,8 +58,19 @@ Then open http://localhost:8080.
 
 ## Importing from the original (local-only) Tradone app
 
-The first-run screen offers "Import from your existing Tradone" — point it
-at your original app's server (`node server.js` from the project root,
-default `http://localhost:3001`) and your existing username/password. It
-pulls your accounts/expenses/wallets into this build's encrypted vault. Your
-trade journal is not imported — this build has no Trading tab.
+File-based, not a live server-to-server call — a page served over HTTPS
+(like the deployed GitHub Pages build) can never fetch a plain-HTTP
+`localhost` address; browsers block that outright ("mixed content"). So:
+
+1. From the **original** Tradone's project root (not `web/`), run:
+   ```
+   node scripts/export-legacy-profile.js <your-username>
+   ```
+   No server needs to be running — it reads `data/accounts.db.json`
+   directly. Writes `<your-username>-export.json` in the project root.
+2. On this build's first-run screen, choose **Import from a file** and
+   upload that file.
+
+Your trade journal is not imported — this build has no Trading tab. The
+export file is plain JSON (unencrypted) — treat it like any other copy of
+your financial data (don't commit it, delete it once imported if you like).
