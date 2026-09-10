@@ -26,8 +26,8 @@
           </svg>
           <span class="logo-text">Tradone</span>
         </div>
-        <h1 id="auth-heading" data-i18n="auth.heading">Log in</h1>
-        <p class="auth-sub" id="auth-sub" data-i18n="auth.sub">Your account is stored locally on this device only.</p>
+        <h1 id="auth-heading">Log in</h1>
+        <p class="auth-sub" id="auth-sub">Your data is encrypted and stored only on this device.</p>
 
         <!-- A vault already exists on this device — just needs the passphrase. -->
         <form id="unlock-form" class="account-form" style="display:none">
@@ -35,16 +35,11 @@
             <span>Passphrase</span>
             <input id="unlock-passphrase" type="password" autocomplete="current-password" required />
           </label>
-          <button type="submit" class="avanza-btn">Unlock</button>
+          <button type="submit" class="avanza-btn">Log in</button>
         </form>
 
-        <!-- First run on this device: create a new vault, or import from the
-             existing (unmodified) Tradone app's local server. -->
-        <div id="first-run-choice" style="display:none">
-          <button type="button" id="choose-create-btn" class="avanza-btn">Create a new vault</button>
-          <button type="button" id="choose-import-btn" class="link-btn" style="margin-top:10px">Import from your existing Tradone</button>
-        </div>
-
+        <!-- First run on this device: nothing to unlock yet, so straight to
+             choosing a passphrase. -->
         <form id="create-form" class="account-form" style="display:none">
           <p class="avanza-note">Choose a passphrase. It never leaves this device and cannot be recovered if lost — write it down somewhere safe.</p>
           <label>
@@ -55,26 +50,7 @@
             <span>Confirm passphrase</span>
             <input id="create-passphrase-confirm" type="password" autocomplete="new-password" minlength="8" required />
           </label>
-          <button type="submit" class="avanza-btn">Create vault</button>
-          <button type="button" id="create-back-btn" class="link-btn">Back</button>
-        </form>
-
-        <form id="import-form" class="account-form" style="display:none">
-          <p class="avanza-note">From your existing Tradone's project folder, run <code>node scripts/export-legacy-profile.js &lt;your-username&gt;</code> — it writes a file with your accounts and expenses, no server needs to be running. Upload that file below. Your trade journal is not imported — this build has no Trading tab.</p>
-          <label>
-            <span>Exported profile file</span>
-            <input id="import-file" type="file" accept="application/json,.json" required />
-          </label>
-          <label>
-            <span>New passphrase (for this device's vault)</span>
-            <input id="import-new-passphrase" type="password" autocomplete="new-password" minlength="8" required />
-          </label>
-          <label>
-            <span>Confirm new passphrase</span>
-            <input id="import-new-passphrase-confirm" type="password" autocomplete="new-password" minlength="8" required />
-          </label>
-          <button type="submit" class="avanza-btn">Import &amp; create vault</button>
-          <button type="button" id="import-back-btn" class="link-btn">Back</button>
+          <button type="submit" class="avanza-btn">Sign up</button>
         </form>
 
         <p id="auth-error" class="auth-error"></p>

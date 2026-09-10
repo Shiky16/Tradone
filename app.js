@@ -5753,13 +5753,7 @@ const authHeading    = document.getElementById('auth-heading');
 const authSub        = document.getElementById('auth-sub');
 const authError      = document.getElementById('auth-error');
 const unlockForm     = document.getElementById('unlock-form');
-const firstRunChoice = document.getElementById('first-run-choice');
 const createForm     = document.getElementById('create-form');
-const importForm     = document.getElementById('import-form');
-const chooseCreateBtn = document.getElementById('choose-create-btn');
-const chooseImportBtn = document.getElementById('choose-import-btn');
-const createBackBtn  = document.getElementById('create-back-btn');
-const importBackBtn  = document.getElementById('import-back-btn');
 const logoutBtn      = document.getElementById('logout-btn');
 const currencyDropdown    = document.getElementById('currency-dropdown');
 const currencyDropdownBtn = document.getElementById('currency-dropdown-btn');
@@ -5767,21 +5761,16 @@ const currencyDropdownLabel = document.getElementById('currency-dropdown-label')
 const currencyDropdownMenu = document.getElementById('currency-dropdown-menu');
 const currencyOptions     = [...currencyDropdownMenu.querySelectorAll('li')];
 
-// One of 'unlock' (a vault already exists on this device), 'choice'
-// (first run — create new vs. import), 'create', or 'import'.
+// 'unlock' — a vault already exists on this device (Log in). 'create' — no
+// vault yet, first run on this device (Sign up). English-only for now, same
+// as the rest of this gate (a smaller, one-time addition to localize later
+// rather than touching all three locale dictionaries for a handful of
+// first-run-only strings).
 function setGateView(view) {
   unlockForm.style.display = view === 'unlock' ? '' : 'none';
-  firstRunChoice.style.display = view === 'choice' ? '' : 'none';
   createForm.style.display = view === 'create' ? '' : 'none';
-  importForm.style.display = view === 'import' ? '' : 'none';
-  // The unlock screen reuses the app's existing translated auth.* strings;
-  // the new create/import screens are English-only for now (a smaller,
-  // one-time addition to localize later rather than touching all three
-  // locale dictionaries for a handful of first-run-only strings).
-  authHeading.textContent = view === 'unlock' ? t('auth.heading') : 'Set up your vault';
-  authSub.textContent = view === 'unlock'
-    ? t('auth.sub')
-    : 'Your data is encrypted and stored only on this device — nothing is sent to a server.';
+  authHeading.textContent = view === 'unlock' ? 'Log in' : 'Sign up';
+  authSub.textContent = 'Your data is encrypted and stored only on this device.';
   authError.textContent = '';
 }
 
@@ -5918,11 +5907,6 @@ function showGate() {
   authGate.style.display = '';
   playPopInAnimation(authGate);
 }
-
-chooseCreateBtn.addEventListener('click', () => setGateView('create'));
-chooseImportBtn.addEventListener('click', () => setGateView('import'));
-createBackBtn.addEventListener('click', () => setGateView('choice'));
-importBackBtn.addEventListener('click', () => setGateView('choice'));
 
 // Writes every profile field into the local encrypted vault (see
 // storage.js) — the direct replacement for the old app's whole-profile PUT
@@ -6125,60 +6109,6 @@ createForm.addEventListener('submit', (event) => {
       showApp();
     } catch (err) {
       authError.textContent = err.message || 'Failed to create the vault.';
-    }
-  });
-});
-
-// One-time import from the original (unmodified) Tradone app — logs into
-// that app's still-running local server exactly the way its own login form
-// does, pulls the profile once, and writes everything except the trading
-// journal (this build has no Trading tab) into a newly-created vault here.
-// File-based, not a live fetch to the old app's server — a page served over
-// HTTPS (as the deployed build is) can never fetch a plain-HTTP
-// localhost address; browsers block that outright ("mixed content"), no
-// workaround possible from this side. Reading a local file has no such
-// restriction and works identically whether this page is local or
-// deployed. See scripts/export-legacy-profile.js for the export half.
-function readFileAsText(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error || new Error('Failed to read the file.'));
-    reader.readAsText(file);
-  });
-}
-
-importForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  authError.textContent = '';
-  const file = document.getElementById('import-file').files[0];
-  const passphrase = document.getElementById('import-new-passphrase').value;
-  const confirmPassphrase = document.getElementById('import-new-passphrase-confirm').value;
-  if (!file) {
-    authError.textContent = 'Choose an exported profile file first.';
-    return;
-  }
-  if (passphrase !== confirmPassphrase) {
-    authError.textContent = 'Passphrases do not match.';
-    return;
-  }
-
-  withLoading(async () => {
-    try {
-      let oldProfile;
-      try {
-        oldProfile = JSON.parse(await readFileAsText(file));
-      } catch {
-        throw new Error('That file doesn\'t look like a valid export — make sure it\'s the untouched output of export-legacy-profile.js.');
-      }
-
-      await Vault.createVault(passphrase);
-      await Vault.importProfileFields(oldProfile);
-
-      await loadProfileAndRestore();
-      showApp();
-    } catch (err) {
-      authError.textContent = err.message || 'Import failed.';
     }
   });
 });
@@ -6808,10 +6738,10 @@ function applyLanguage(lang) {
 applyStaticTranslations();
 
 // Boot: an existing vault means this device has used the app before — show
-// the unlock screen; no vault means true first run — show the create/import
-// choice. Either way nothing here touches a network.
+// the Log in screen; no vault means true first run — show Sign up. Either
+// way nothing here touches a network.
 withLoading(async () => {
   const exists = await Vault.hasExistingVault();
-  setGateView(exists ? 'unlock' : 'choice');
+  setGateView(exists ? 'unlock' : 'create');
   showGate();
 });
