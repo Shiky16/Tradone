@@ -2358,7 +2358,7 @@ app.get('/api/news/stocks-general', async (req, res) => {
 // running at once against this same machine during a migration, so they
 // can't share a port.
 const PORT = process.env.PORT || 3002;
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 app.listen(PORT, HOST, () => {
   console.log(`Tradone relay running → http://${HOST}:${PORT}`);
 });
