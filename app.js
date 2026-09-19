@@ -32,7 +32,7 @@ const FORM_PANEL_WIDTH_KEY = 'portfolio-form-panel-width-v1';
 // service name chosen at creation).
 const API_BASE = ['localhost', '127.0.0.1'].includes(location.hostname)
   ? 'http://localhost:3002'
-  : 'https://tradone-relay.onrender.com'; // ← update this to your actual Render URL
+  : 'https://tradone.onrender.com'; // Render service name is "Tradone", not "tradone-relay"
 
 // Declared this early (rather than down with the rest of the Portfolio News
 // code) because refreshAvanzaCard/refreshCryptoPortfolioCard's call to
