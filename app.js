@@ -20,7 +20,6 @@ const DECIMAL_SEPARATOR_KEY = 'portfolio-decimal-separator-v1';
 const MERGE_STAKED_KEY = 'portfolio-merge-staked-v1';
 const WEEK_START_KEY = 'portfolio-week-start-v1';
 const LANGUAGE_KEY = 'portfolio-language-v1';
-const FINNHUB_API_KEY_STORAGE_KEY = 'portfolio-finnhub-api-key-v1';
 const NEWS_SORT_KEY = 'portfolio-news-sort-v1';
 const NEWS_PANEL_WIDTH_KEY = 'portfolio-news-panel-width-v1';
 const FORM_PANEL_WIDTH_KEY = 'portfolio-form-panel-width-v1';
@@ -230,15 +229,10 @@ const TRANSLATIONS = {
     'news.assetFilterLabel': 'Show',
     'news.assetFilterAll': 'All',
     'news.sub': 'Latest headlines for what you hold',
-    'news.openSettings': 'Open Settings',
-    'news.keyPromptNote': 'Add a free API key in Settings to include news for: {types}.',
-    'news.cryptoLabel': 'crypto',
     'news.cryptoBadge': 'Crypto',
     'news.marketBadge': 'Market',
-    'news.stockLabel': 'stocks/ETFs',
     'news.empty': 'No news yet — add a wallet, broker account, or coin to see headlines here.',
     'news.loading': 'Loading news…',
-    'news.keyInvalid': "One of your news API keys doesn't look valid — check it in Settings.",
     'news.readFull': 'Read full article',
     'news.noSummary': 'No summary available.',
 
@@ -326,12 +320,6 @@ const TRANSLATIONS = {
     'settings.weekStartLabel': 'Week starts on',
     'settings.weekStartMonday': 'Monday',
     'settings.weekStartSunday': 'Sunday',
-    'settings.newsHeading': 'Portfolio news',
-    'settings.newsSub': 'One free Finnhub API key covers both stock/ETF headlines (matched to what you hold) and general crypto market news.',
-    'settings.finnhubNote': 'Get a free key at <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io/register</a> (no credit card).',
-    'settings.finnhubKeyLabel': 'Finnhub API key',
-    'settings.finnhubKeyPlaceholder': 'Paste your key here',
-    'settings.newsKeysSave': 'Save key',
 
     'card.cryptoPortfolio': 'Crypto Portfolio',
     'card.avanza': 'Avanza',
@@ -487,15 +475,10 @@ const TRANSLATIONS = {
     'news.assetFilterLabel': 'Показать',
     'news.assetFilterAll': 'Все',
     'news.sub': 'Последние новости по вашим активам',
-    'news.openSettings': 'Открыть настройки',
-    'news.keyPromptNote': 'Добавьте бесплатный API-ключ в настройках, чтобы видеть новости по: {types}.',
-    'news.cryptoLabel': 'криптовалюте',
     'news.cryptoBadge': 'Крипто',
     'news.marketBadge': 'Рынок',
-    'news.stockLabel': 'акциям/ETF',
     'news.empty': 'Пока нет новостей — добавьте кошелёк, брокерский счёт или монету, чтобы увидеть новости здесь.',
     'news.loading': 'Загрузка новостей…',
-    'news.keyInvalid': 'Похоже, один из ключей API для новостей недействителен — проверьте его в настройках.',
     'news.readFull': 'Читать статью полностью',
     'news.noSummary': 'Описание недоступно.',
 
@@ -583,12 +566,6 @@ const TRANSLATIONS = {
     'settings.weekStartLabel': 'Неделя начинается с',
     'settings.weekStartMonday': 'Понедельника',
     'settings.weekStartSunday': 'Воскресенья',
-    'settings.newsHeading': 'Новости портфеля',
-    'settings.newsSub': 'Один бесплатный API-ключ Finnhub покрывает и новости по акциям/ETF (по вашим вложениям), и общие новости по крипторынку.',
-    'settings.finnhubNote': 'Получите бесплатный ключ на <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io/register</a> (без банковской карты).',
-    'settings.finnhubKeyLabel': 'API-ключ Finnhub',
-    'settings.finnhubKeyPlaceholder': 'Вставьте ваш ключ сюда',
-    'settings.newsKeysSave': 'Сохранить ключ',
 
     'card.cryptoPortfolio': 'Криптопортфель',
     'card.avanza': 'Avanza',
@@ -744,15 +721,10 @@ const TRANSLATIONS = {
     'news.assetFilterLabel': '显示',
     'news.assetFilterAll': '全部',
     'news.sub': '与您持仓相关的最新头条',
-    'news.openSettings': '打开设置',
-    'news.keyPromptNote': '在设置中添加免费的 API 密钥，即可查看以下内容的新闻：{types}。',
-    'news.cryptoLabel': '加密货币',
     'news.cryptoBadge': '加密货币',
     'news.marketBadge': '市场',
-    'news.stockLabel': '股票/ETF',
     'news.empty': '暂无新闻——添加钱包、券商账户或币种后即可在此查看头条新闻。',
     'news.loading': '正在加载新闻…',
-    'news.keyInvalid': '您的某个新闻 API 密钥似乎无效——请在设置中检查。',
     'news.readFull': '阅读全文',
     'news.noSummary': '暂无摘要。',
 
@@ -839,12 +811,6 @@ const TRANSLATIONS = {
     'settings.weekStartLabel': '一周从',
     'settings.weekStartMonday': '星期一开始',
     'settings.weekStartSunday': '星期日开始',
-    'settings.newsHeading': '投资组合新闻',
-    'settings.newsSub': '一个免费的 Finnhub API 密钥即可同时覆盖股票/ETF 新闻（匹配您的持仓）和一般加密货币市场新闻。',
-    'settings.finnhubNote': '前往 <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io/register</a> 免费获取密钥（无需信用卡）。',
-    'settings.finnhubKeyLabel': 'Finnhub API 密钥',
-    'settings.finnhubKeyPlaceholder': '在此粘贴您的密钥',
-    'settings.newsKeysSave': '保存密钥',
 
     'card.cryptoPortfolio': '加密投资组合',
     'card.avanza': 'Avanza',
@@ -6123,40 +6089,24 @@ logoutBtn.addEventListener('click', () => {
 });
 
 // ── Portfolio news ───────────────────────────────────────────────────────────
-// One merged, chronological feed for everything currently held. Both halves
-// go through the one Finnhub key: stock/ETF headlines are per-holding
-// (resolved by company name → ticker, see server.js), crypto headlines are
-// Finnhub's general /news?category=crypto — not filterable by coin, since
-// CryptoCompare/CryptoPanic/CoinGecko all retired their free per-coin crypto
-// news tiers within weeks of each other in 2026, leaving Finnhub as the only
-// remaining free source at all. The key lives only in this browser's
-// localStorage (never synced to the server profile, same treatment as the
-// PayPal Client ID/Secret) and is sent with each request. Refetched whenever
-// the held-asset set changes (see the scheduleNewsRefresh() calls in
+// One merged, chronological feed for everything currently held: stock/ETF
+// headlines are per-holding (resolved by company name → ticker, see
+// server.js), crypto headlines are a general crypto feed — not filterable
+// by coin. The relay (server.js) sources both keylessly; no client-side API
+// key involved. Refetched whenever the held-asset set changes (see the
+// scheduleNewsRefresh() calls in
 // refreshCryptoPortfolioCard/refreshAvanzaCard above) rather than on every
 // render(), which would hammer the API for changes (currency switch, a
 // balance edit, ...) that don't affect which assets are actually held.
 
 const newsListEl = document.getElementById('news-list');
-const newsKeyPromptEl = document.getElementById('news-key-prompt');
-const newsKeyPromptTextEl = document.getElementById('news-key-prompt-text');
 const newsRefreshBtn = document.getElementById('news-refresh-btn');
-const newsOpenSettingsBtn = document.getElementById('news-open-settings-btn');
-const newsKeysForm = document.getElementById('news-keys-form');
-const finnhubKeyInput = document.getElementById('settings-finnhub-key');
 const newsSortWrap = document.getElementById('news-sort-wrap');
-
-let finnhubApiKey = localStorage.getItem(FINNHUB_API_KEY_STORAGE_KEY) || '';
-finnhubKeyInput.value = finnhubApiKey;
 
 let newsItems = [];
 let newsExpandedId = null;
 let newsFetchFingerprint = '';
 let newsLoading = false;
-let newsCryptoKeyMissing = false;
-let newsCryptoKeyInvalid = false;
-let newsStockKeyMissing = false;
-let newsStockKeyInvalid = false;
 
 // Persisted like the expense view mode — a page reload keeps showing the
 // feed the way it was left instead of resetting to newest-first.
@@ -6524,15 +6474,11 @@ function scheduleNewsRefresh(delay = 1200) {
 async function fetchPortfolioNews() {
   const cryptoSymbols = getHeldCryptoSymbols();
   const stockNames = getHeldStockNames();
-  const fingerprint = JSON.stringify([cryptoSymbols, stockNames, finnhubApiKey]);
+  const fingerprint = JSON.stringify([cryptoSymbols, stockNames]);
   newsFetchFingerprint = fingerprint;
 
   if (!cryptoSymbols.length && !stockNames.length) {
     newsItems = [];
-    newsCryptoKeyMissing = false;
-    newsCryptoKeyInvalid = false;
-    newsStockKeyMissing = false;
-    newsStockKeyInvalid = false;
     newsLoading = false;
     renderNewsPanel();
     return;
@@ -6541,19 +6487,17 @@ async function fetchPortfolioNews() {
   newsLoading = true;
   renderNewsPanel();
 
-  const keyParam = finnhubApiKey ? `&key=${encodeURIComponent(finnhubApiKey)}` : '';
-
   const cryptoPromise = cryptoSymbols.length
-    ? fetch(`${API_BASE}/api/news/crypto?${cryptoSymbols.map((s) => `symbols=${encodeURIComponent(s)}`).join('&')}${keyParam}`)
+    ? fetch(`${API_BASE}/api/news/crypto?${cryptoSymbols.map((s) => `symbols=${encodeURIComponent(s)}`).join('&')}`)
         .then((r) => r.json())
         .catch(() => ({ items: [] }))
     : Promise.resolve({ items: [] });
 
   const stockPromise = stockNames.length
-    ? fetch(`${API_BASE}/api/news/stocks?${stockNames.map((n) => `names=${encodeURIComponent(n)}`).join('&')}${keyParam}`)
+    ? fetch(`${API_BASE}/api/news/stocks?${stockNames.map((n) => `names=${encodeURIComponent(n)}`).join('&')}`)
         .then((r) => r.json())
         .catch(() => ({ items: [] }))
-    : Promise.resolve({ items: [], keyMissing: !finnhubApiKey });
+    : Promise.resolve({ items: [] });
 
   // Broad top market news, alongside whatever company-specific matches the
   // call above finds — see /api/news/stocks-general's own comment for why
@@ -6564,26 +6508,22 @@ async function fetchPortfolioNews() {
   // of your holdings gets tagged with its ticker instead of showing as
   // unattributed market news.
   const marketPromise = stockNames.length
-    ? fetch(`${API_BASE}/api/news/stocks-general?hasStocks=1&${stockNames.map((n) => `names=${encodeURIComponent(n)}`).join('&')}${keyParam}`)
+    ? fetch(`${API_BASE}/api/news/stocks-general?hasStocks=1&${stockNames.map((n) => `names=${encodeURIComponent(n)}`).join('&')}`)
         .then((r) => r.json())
         .catch(() => ({ items: [] }))
-    : Promise.resolve({ items: [], keyMissing: !finnhubApiKey });
+    : Promise.resolve({ items: [] });
 
   const [cryptoRes, stockRes, marketRes] = await Promise.all([cryptoPromise, stockPromise, marketPromise]);
 
   // A slower-to-resolve response for a fingerprint that's since gone stale
-  // (holdings or a key changed again while this was in flight) shouldn't
-  // clobber whatever a newer request already rendered.
+  // (holdings changed again while this was in flight) shouldn't clobber
+  // whatever a newer request already rendered.
   if (newsFetchFingerprint !== fingerprint) return;
 
   const merged = [...(cryptoRes.items || []), ...(stockRes.items || []), ...(marketRes.items || [])];
   merged.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
   newsItems = merged;
-  newsCryptoKeyMissing = !!cryptoRes.keyMissing;
-  newsCryptoKeyInvalid = !!cryptoRes.keyInvalid;
-  newsStockKeyMissing = !!stockRes.keyMissing;
-  newsStockKeyInvalid = !!stockRes.keyInvalid || !!marketRes.keyInvalid;
   newsLoading = false;
   renderNewsPanel();
 }
@@ -6621,27 +6561,9 @@ function newsItemHtml(item) {
   `;
 }
 
-// Only mentions a provider's missing key when the portfolio actually holds
-// something that provider would cover — no point prompting for a Finnhub key
-// on a portfolio with no stock positions at all.
-function newsMissingKeyLabels() {
-  const labels = [];
-  if (newsCryptoKeyMissing && getHeldCryptoSymbols().length) labels.push(t('news.cryptoLabel'));
-  if (newsStockKeyMissing && getHeldStockNames().length) labels.push(t('news.stockLabel'));
-  return labels;
-}
-
 function renderNewsPanel() {
   newsRefreshBtn.disabled = newsLoading;
   renderNewsSortMenu();
-
-  const missing = newsMissingKeyLabels();
-  if (missing.length) {
-    newsKeyPromptEl.style.display = '';
-    newsKeyPromptTextEl.textContent = t('news.keyPromptNote').replace('{types}', missing.join(', '));
-  } else {
-    newsKeyPromptEl.style.display = 'none';
-  }
 
   if (newsLoading && !newsItems.length) {
     newsListEl.innerHTML = `<p class="empty-state">${t('news.loading')}</p>`;
@@ -6649,8 +6571,7 @@ function renderNewsPanel() {
   }
 
   if (!newsItems.length) {
-    const message = (newsCryptoKeyInvalid || newsStockKeyInvalid) ? t('news.keyInvalid') : t('news.empty');
-    newsListEl.innerHTML = `<p class="empty-state">${message}</p>`;
+    newsListEl.innerHTML = `<p class="empty-state">${t('news.empty')}</p>`;
     return;
   }
 
@@ -6666,14 +6587,6 @@ newsListEl.addEventListener('click', (event) => {
 });
 
 newsRefreshBtn.addEventListener('click', () => fetchPortfolioNews());
-newsOpenSettingsBtn.addEventListener('click', () => goToPage('settings'));
-
-newsKeysForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  finnhubApiKey = finnhubKeyInput.value.trim();
-  localStorage.setItem(FINNHUB_API_KEY_STORAGE_KEY, finnhubApiKey);
-  fetchPortfolioNews();
-});
 
 // Catches new articles that show up while the dashboard is just left open —
 // deliberately modest (not the 1.2s debounce delay above) since this is a

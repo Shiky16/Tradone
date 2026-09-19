@@ -4,7 +4,7 @@
 // financial/market data from the relay (see server.js) and must always hit
 // the network, never a stale cache. Bump CACHE_NAME on every shell release
 // so returning visitors pick up the new files instead of stale cached ones.
-const CACHE_NAME = 'tradone-shell-v4';
+const CACHE_NAME = 'tradone-shell-v5';
 const SHELL_FILES = [
   './',
   './index.html',
