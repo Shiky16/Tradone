@@ -619,11 +619,10 @@ app.get('/api/stats/:accountId', async (req, res) => {
 
 // ── Crypto wallet (Ethereum) ────────────────────────────────────────────────
 
-const ETHPLORER = 'https://api.ethplorer.io';
 const COINGECKO = 'https://api.coingecko.com/api/v3';
 const ETHERSCAN = 'https://api.etherscan.io/v2/api';
-// Free key: https://etherscan.io/apis — Ethplorer's freekey only sees the last 30 days
-// of transfer history, so Etherscan is used instead to find true first-received dates.
+// Free key: https://etherscan.io/apis — used for full transfer history (true
+// first-received dates, and ERC-20 token discovery — see getFirstReceivedDates).
 //
 // Unlike the original single-user server, these have no literal fallback
 // key baked in: that was fine on a machine only its owner ever ran, but a
@@ -753,10 +752,13 @@ async function fetchEtherscan(params) {
 }
 
 // Finds the earliest date each token (and ETH) arrived in the wallet, using
-// full transaction history — not limited to a recent window like Ethplorer's freekey.
+// full transaction history. Also doubles as the wallet's token *discovery*
+// mechanism (see tokenMeta below) — Etherscan's tokentx already carries each
+// token's symbol/name/decimals on every row, so no second lookup is needed.
 async function getFirstReceivedDates(address) {
   const lowerAddr = address.toLowerCase();
   const firstReceived = {};
+  const tokenMeta = {};
   let ethFirstReceived = null;
 
   const baseParams = { module: 'account', address, startblock: '0', endblock: '999999999', sort: 'asc', offset: '10000', page: '1' };
@@ -775,14 +777,44 @@ async function getFirstReceivedDates(address) {
   }
 
   for (const tx of tokenTxs) {
-    if (tx.to?.toLowerCase() !== lowerAddr) continue;
     const ca = tx.contractAddress?.toLowerCase();
     if (!ca) continue;
+    if (!tokenMeta[ca]) {
+      tokenMeta[ca] = {
+        symbol: tx.tokenSymbol || '?',
+        name: tx.tokenName || 'Unknown token',
+        decimals: Number.isFinite(Number(tx.tokenDecimal)) ? Number(tx.tokenDecimal) : 18
+      };
+    }
+    if (tx.to?.toLowerCase() !== lowerAddr) continue;
     const date = new Date(Number(tx.timeStamp) * 1000).toISOString().slice(0, 10);
     if (!firstReceived[ca] || date < firstReceived[ca]) firstReceived[ca] = date;
   }
 
-  return { firstReceived, ethFirstReceived };
+  return { firstReceived, ethFirstReceived, tokenMeta };
+}
+
+// Batched current-price lookup for a set of ERC-20 contracts on a given
+// chain — one call for the whole wallet's tokens instead of one per token,
+// unlike the per-contract lookup below (getHistoricalPrice/coinId resolution)
+// which only runs for the handful of top-value tokens that need a coinId anyway.
+// A wallet that's collected a lot of spam/airdropped tokens (routine on
+// Solana, increasingly so on Ethereum too) can hold far more distinct
+// contracts than fit in one URL, so addresses are chunked rather than joined
+// into a single unbounded query string.
+const TOKEN_PRICE_CHUNK_SIZE = 100;
+
+async function getCoingeckoTokenPrices(platformId, contractAddresses) {
+  if (!contractAddresses.length) return {};
+  const results = {};
+  for (let i = 0; i < contractAddresses.length; i += TOKEN_PRICE_CHUNK_SIZE) {
+    const chunk = contractAddresses.slice(i, i + TOKEN_PRICE_CHUNK_SIZE);
+    try {
+      const res = await fetch(`${COINGECKO}/simple/token_price/${platformId}?contract_addresses=${chunk.join(',')}&vs_currencies=usd&x_cg_demo_api_key=${COINGECKO_API_KEY}`);
+      Object.assign(results, await res.json());
+    } catch { /* this chunk's prices stay unknown rather than failing the whole batch */ }
+  }
+  return results;
 }
 
 async function getHistoricalPrice(coinId, isoDate) {
@@ -823,20 +855,25 @@ app.get('/api/wallet/:address', marketDataLimiter, async (req, res) => {
   }
 
   try {
-    // Three calls: wallet snapshot (Ethplorer), full transfer history (Etherscan),
-    // and on-chain staked ETH balance (Kiln ocsETH — not seen by Ethplorer)
-    const [infoData, { firstReceived, ethFirstReceived }, stakedEthBalance] = await Promise.all([
-      fetch(`${ETHPLORER}/getAddressInfo/${address}?apiKey=freekey`).then(r => r.json()),
-      getFirstReceivedDates(address).catch(() => ({ firstReceived: {}, ethFirstReceived: null })),
-      getKilnStakedEth(address).catch(() => 0)
+    // Etherscan for transfer history + token discovery (which contracts this
+    // address has ever received, with their symbol/name/decimals baked into
+    // every tokentx row already), a direct RPC call for the live ETH balance,
+    // and the Kiln staked-ETH lookup. Deliberately not Ethplorer any more:
+    // its freekey silently returns empty wallets for requests coming from
+    // cloud-hosted IPs (confirmed live against this very relay on Render),
+    // which was quietly wiping out every ETH and ERC-20 position the moment
+    // this stopped running on a home connection.
+    const [ethBalance, { firstReceived, ethFirstReceived, tokenMeta }, stakedEthBalance, ethPriceData] = await Promise.all([
+      evmNativeBalance(ETH_RPC, address),
+      getFirstReceivedDates(address).catch(() => ({ firstReceived: {}, ethFirstReceived: null, tokenMeta: {} })),
+      getKilnStakedEth(address).catch(() => 0),
+      getCoingeckoPrices(['ethereum'])
     ]);
 
+    const ethPrice = ethPriceData.ethereum?.usd ?? 0;
     const positions = [];
 
     // ETH position
-    const ethBalance   = infoData.ETH?.balance ?? 0;
-    const ethPrice     = infoData.ETH?.price?.rate ?? 0;
-
     if (ethBalance * ethPrice >= DUST_THRESHOLD_USD) {
       const histPrice = await getHistoricalPrice('ethereum', ethFirstReceived);
       positions.push({
@@ -874,36 +911,35 @@ app.get('/api/wallet/:address', marketDataLimiter, async (req, res) => {
       });
     }
 
-    // ERC-20 token positions — Ethplorer's `balance` field is raw (un-adjusted for
-    // decimals), so it has to be scaled down before it means anything.
-    const tokens = (infoData.tokens || [])
-      .map(t => {
-        const decimals = Number(t.tokenInfo?.decimals);
-        const divisor = Number.isFinite(decimals) ? Math.pow(10, decimals) : 1;
-        return { ...t, balance: Number(t.rawBalance) / divisor };
+    // ERC-20 token positions — tokenMeta (from Etherscan's tokentx, above)
+    // lists every contract this address has ever received; balance is
+    // checked live on-chain rather than trusted from transfer history, since
+    // a token fully sent back out afterwards should no longer show up here.
+    const contracts = Object.keys(tokenMeta).filter(ca => ca !== KILN_OCSETH_CONTRACT);
+
+    const balanceEntries = await Promise.all(
+      contracts.map(async (ca) => [ca, await erc20Balance(ETH_RPC, ca, address, tokenMeta[ca].decimals).catch(() => 0)])
+    );
+    const heldContracts = balanceEntries.filter(([, balance]) => balance > 0);
+    const priceData = await getCoingeckoTokenPrices('ethereum', heldContracts.map(([ca]) => ca));
+
+    const tokens = heldContracts
+      .map(([ca, balance]) => {
+        const currentPrice = priceData[ca]?.usd ?? null;
+        const currentValue = currentPrice != null ? balance * currentPrice : null;
+        return { ca, balance, currentPrice, currentValue };
       })
-      .filter(t => t.balance > 0)
-      // Already represented via the dedicated Kiln staked-ETH position above.
-      .filter(t => t.tokenInfo?.address?.toLowerCase() !== KILN_OCSETH_CONTRACT)
-      .sort((a, b) => {
-        const aVal = a.tokenInfo.price ? a.balance * a.tokenInfo.price.rate : 0;
-        const bVal = b.tokenInfo.price ? b.balance * b.tokenInfo.price.rate : 0;
-        return bVal - aVal;
-      });
+      // Skip dust — but keep tokens with no known price, since we can't
+      // tell whether they're worthless or just unlisted on CoinGecko.
+      .filter(t => t.currentValue == null || t.currentValue >= DUST_THRESHOLD_USD)
+      .sort((a, b) => (b.currentValue ?? 0) - (a.currentValue ?? 0));
 
     // Fetch historical prices for top 5 tokens that have a known price
-    const topPricedTokens = tokens.filter(t => t.tokenInfo.price).slice(0, 5);
+    const topPricedTokens = tokens.filter(t => t.currentPrice != null).slice(0, 5);
 
     for (const token of tokens) {
-      const ca           = token.tokenInfo.address.toLowerCase();
-      const currentPrice = token.tokenInfo.price ? token.tokenInfo.price.rate : null;
-      const balance      = token.balance;
-      const currentValue = currentPrice ? balance * currentPrice : null;
-      const firstDate    = firstReceived[ca] ?? null;
-
-      // Skip dust — but keep tokens with no known price, since we can't
-      // tell whether they're worthless or just unlisted on Ethplorer.
-      if (currentValue != null && currentValue < DUST_THRESHOLD_USD) continue;
+      const { ca, balance, currentPrice, currentValue } = token;
+      const firstDate = firstReceived[ca] ?? null;
 
       let histPrice = null;
       let coinId = null;
@@ -921,8 +957,8 @@ app.get('/api/wallet/:address', marketDataLimiter, async (req, res) => {
       }
 
       positions.push({
-        symbol: token.tokenInfo.symbol || '?',
-        name: token.tokenInfo.name || 'Unknown token',
+        symbol: tokenMeta[ca].symbol,
+        name: tokenMeta[ca].name,
         contractAddress: ca,
         coinId,
         balance,
@@ -955,11 +991,18 @@ const SPL_TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 // u64::MAX — the sentinel Solana uses for "not deactivating"
 const NO_DEACTIVATION_EPOCH = '18446744073709551615';
 
-async function solanaRpc(method, params) {
+// A timeout is essential here, not just polite: the public RPC has no SLA
+// and can simply never respond to a heavy call (see getStakeAccounts below)
+// instead of erroring — confirmed live, a stake-account lookup against this
+// endpoint hung indefinitely rather than failing, which took the *entire*
+// /api/solana/:address request down with it (liquid balance and SPL tokens
+// included) rather than just the staked-position part that was actually slow.
+async function solanaRpc(method, params, timeoutMs = 12_000) {
   const res = await fetch(SOLANA_RPC, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    signal: AbortSignal.timeout(timeoutMs)
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
@@ -970,9 +1013,12 @@ async function solanaRpc(method, params) {
 // owning wallet, but query both offsets and de-dupe in case they differ.
 async function getStakeAccounts(address) {
   const filtersFor = (offset) => [{ dataSize: 200 }, { memcmp: { offset, bytes: address } }];
+  // getProgramAccounts is a heavy full-program scan — public RPC providers
+  // are known to sit on it far longer than a simple getBalance, so it gets a
+  // longer allowance than solanaRpc's default rather than racing it unfairly.
   const [byStaker, byWithdrawer] = await Promise.all([
-    solanaRpc('getProgramAccounts', [STAKE_PROGRAM_ID, { encoding: 'jsonParsed', filters: filtersFor(12) }]),
-    solanaRpc('getProgramAccounts', [STAKE_PROGRAM_ID, { encoding: 'jsonParsed', filters: filtersFor(44) }])
+    solanaRpc('getProgramAccounts', [STAKE_PROGRAM_ID, { encoding: 'jsonParsed', filters: filtersFor(12) }], 20_000),
+    solanaRpc('getProgramAccounts', [STAKE_PROGRAM_ID, { encoding: 'jsonParsed', filters: filtersFor(44) }], 20_000)
   ]);
 
   const byPubkey = new Map();
@@ -1029,8 +1075,11 @@ app.get('/api/solana/:address', marketDataLimiter, async (req, res) => {
   }
 
   try {
+    // getStakeAccounts gets its own failure boundary — if the public RPC
+    // times out on that heavy scan, liquid SOL and SPL tokens should still
+    // come back rather than the whole wallet load failing over one slow part.
     const [stakeAccounts, balanceResult, tokenAccountsResult, priceData] = await Promise.all([
-      getStakeAccounts(address),
+      getStakeAccounts(address).catch((err) => { console.error('Solana stake lookup failed:', err.message); return []; }),
       solanaRpc('getBalance', [address]),
       solanaRpc('getTokenAccountsByOwner', [address, { programId: SPL_TOKEN_PROGRAM_ID }, { encoding: 'jsonParsed' }]),
       fetch(`${COINGECKO}/simple/price?ids=solana&vs_currencies=usd&x_cg_demo_api_key=${COINGECKO_API_KEY}`).then(r => r.json())
@@ -1061,41 +1110,70 @@ app.get('/api/solana/:address', marketDataLimiter, async (req, res) => {
       });
     }
 
-    // SPL tokens — RPC gives us balances but not symbol/price, so look each
-    // up on CoinGecko (skip zero-balance accounts, common for dust/empty ATAs).
+    // SPL tokens — RPC gives us balances but not symbol/price. Wallets that
+    // have been active for a while routinely accumulate dozens to thousands
+    // of spam/airdropped SPL tokens, and a per-token CoinGecko lookup either
+    // takes minutes run one at a time (the old code) or instantly trips rate
+    // limiting when fired all at once — starving even the wallet's *real*
+    // holdings of a price in the same burst. A single batched price call
+    // sidesteps both: spam tokens overwhelmingly have no CoinGecko listing at
+    // all, so it also does almost all of the filtering for free, leaving only
+    // a small, cheap set of real holdings to look up individually for
+    // symbol/name (the batched endpoint doesn't carry those).
     const tokenAccounts = (tokenAccountsResult?.value || [])
       .filter(acc => Number(acc.account.data.parsed.info.tokenAmount.uiAmount) > 0);
 
-    for (const acc of tokenAccounts) {
-      const info = acc.account.data.parsed.info;
-      const balance = Number(info.tokenAmount.uiAmount);
-      const { price, symbol, name, coinId } = await getSolanaTokenInfo(info.mint);
-      const currentValue = price != null ? balance * price : null;
-      if (currentValue != null && currentValue < DUST_THRESHOLD_USD) continue;
+    const mints = tokenAccounts.map(acc => acc.account.data.parsed.info.mint);
+    const tokenPriceData = await getCoingeckoTokenPrices('solana', mints);
 
+    const pricedMints = [...new Set(mints.filter(m => tokenPriceData[m]?.usd != null))];
+    const tokenDetails = await Promise.all(pricedMints.map(getSolanaTokenInfo));
+    const detailsByMint = new Map(pricedMints.map((m, i) => [m, tokenDetails[i]]));
+
+    const candidates = tokenAccounts
+      .map(acc => {
+        const info = acc.account.data.parsed.info;
+        const balance = Number(info.tokenAmount.uiAmount);
+        const price = tokenPriceData[info.mint]?.usd ?? null;
+        const details = detailsByMint.get(info.mint);
+        const currentValue = price != null ? balance * price : null;
+        return {
+          pubkey: acc.pubkey, mint: info.mint, balance, price, currentValue,
+          symbol: details?.symbol || null, name: details?.name || null, coinId: details?.coinId || null
+        };
+      })
+      .filter(t => t.currentValue == null || t.currentValue >= DUST_THRESHOLD_USD);
+
+    // Cost basis (a first-signature lookup plus a CoinGecko history call per
+    // token) is the genuinely expensive part — bounded to the top 5 by value,
+    // same tradeoff already made for Ethereum's ERC-20 tokens above.
+    const topPriced = candidates.filter(t => t.price != null).sort((a, b) => b.currentValue - a.currentValue).slice(0, 5);
+    const topPricedKeys = new Set(topPriced.map(t => t.pubkey));
+
+    for (const t of candidates) {
       let firstDate = null;
       let histPrice = null;
-      if (price != null && coinId) {
-        firstDate = await getSolanaFirstSignatureDate(acc.pubkey);
+      if (t.coinId && topPricedKeys.has(t.pubkey)) {
+        firstDate = await getSolanaFirstSignatureDate(t.pubkey);
         if (firstDate) {
           await sleep(350);
-          histPrice = await getHistoricalPrice(coinId, firstDate);
+          histPrice = await getHistoricalPrice(t.coinId, firstDate);
         }
       }
 
       positions.push({
         type: 'liquid',
-        symbol: symbol || `${info.mint.slice(0, 4)}…${info.mint.slice(-4)}`,
-        name: name || 'Unknown SPL token',
-        mint: info.mint,
-        coinId,
-        balance,
-        currentPrice: price,
-        currentValue,
+        symbol: t.symbol || `${t.mint.slice(0, 4)}…${t.mint.slice(-4)}`,
+        name: t.name || 'Unknown SPL token',
+        mint: t.mint,
+        coinId: t.coinId,
+        balance: t.balance,
+        currentPrice: t.price,
+        currentValue: t.currentValue,
         firstReceivedDate: firstDate,
         priceAtFirstReceived: histPrice,
-        gainPercent: histPrice && price ? ((price - histPrice) / histPrice) * 100 : null,
-        gainAbsolute: histPrice && price ? (price - histPrice) * balance : null
+        gainPercent: histPrice && t.price ? ((t.price - histPrice) / histPrice) * 100 : null,
+        gainAbsolute: histPrice && t.price ? (t.price - histPrice) * t.balance : null
       });
       await sleep(350);
     }
@@ -1225,24 +1303,77 @@ async function getOptimismPositions(address) {
 
 const NEAR_RPC = 'https://rpc.mainnet.near.org';
 
+// FastNear's free indexer — the only practical way to learn which staking
+// pool(s) an account has ever delegated to, since that relationship lives on
+// each pool contract rather than the account itself, and there's no on-chain
+// registry to scan for it. No API key needed for this per-account lookup
+// (confirmed live); an account with no staking history just gets [] back.
+async function getNearStakingPools(accountId) {
+  try {
+    const res = await fetch(`https://api.fastnear.com/v1/account/${accountId}/staking`, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.pools || []).map(p => p.pool_id);
+  } catch {
+    return [];
+  }
+}
+
+// A staking pool's get_account_staked_balance view method returns the
+// delegator's staked balance as a JSON-encoded yoctoNEAR string, itself
+// wrapped in the raw byte array every NEAR view-call result comes back as —
+// hence the decode-then-parse. A pool the account has since fully unstaked
+// from (FastNear lists past pools too, not just current ones) just answers 0.
+async function getNearPoolStakedBalance(poolId, accountId) {
+  try {
+    const argsBase64 = Buffer.from(JSON.stringify({ account_id: accountId })).toString('base64');
+    const res = await fetch(NEAR_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'query',
+        params: { request_type: 'call_function', finality: 'final', account_id: poolId, method_name: 'get_account_staked_balance', args_base64: argsBase64 }
+      }),
+      signal: AbortSignal.timeout(12_000)
+    });
+    const { result, error } = await res.json();
+    if (error) return 0;
+    const raw = JSON.parse(Buffer.from(result.result).toString('utf8'));
+    return Number(BigInt(raw)) / 1e24;
+  } catch {
+    return 0;
+  }
+}
+
 async function getNearPositions(accountId) {
-  const res = await fetch(NEAR_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 1, method: 'query',
-      params: { request_type: 'view_account', finality: 'final', account_id: accountId }
-    })
-  });
-  const { result, error } = await res.json();
-  if (error) throw new Error(error.data || error.message || 'NEAR account not found.');
-
-  const balance = Number(BigInt(result.amount)) / 1e24;
-  const prices = await getCoingeckoPrices(['near']);
-
-  return toPositions([
-    { symbol: 'NEAR', name: 'NEAR Protocol', coinId: 'near', balance, currentPrice: prices.near?.usd ?? null }
+  const [accountRes, pools] = await Promise.all([
+    fetch(NEAR_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'query',
+        params: { request_type: 'view_account', finality: 'final', account_id: accountId }
+      })
+    }).then(r => r.json()),
+    getNearStakingPools(accountId)
   ]);
+  if (accountRes.error) throw new Error(accountRes.error.data || accountRes.error.message || 'NEAR account not found.');
+
+  const balance = Number(BigInt(accountRes.result.amount)) / 1e24;
+  const [prices, stakedBalances] = await Promise.all([
+    getCoingeckoPrices(['near']),
+    Promise.all(pools.map(poolId => getNearPoolStakedBalance(poolId, accountId)))
+  ]);
+  const currentPrice = prices.near?.usd ?? null;
+
+  const positions = [{ symbol: 'NEAR', name: 'NEAR Protocol', coinId: 'near', balance, currentPrice }];
+  pools.forEach((poolId, i) => {
+    if (stakedBalances[i] > 0) {
+      positions.push({ symbol: 'NEAR', name: 'NEAR (staked)', pool: poolId, coinId: 'near', balance: stakedBalances[i], currentPrice });
+    }
+  });
+
+  return toPositions(positions);
 }
 
 const XRP_RPC = 'https://xrplcluster.com';

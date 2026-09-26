@@ -4657,7 +4657,10 @@ function shortId(str, front = 6, back = 4) {
 function cryptoPositionId(pos) {
   if (pos.kind === 'staked-sol') return `sol-stake-${pos.stakeAccount}`;
   if (pos.kind === 'sol-liquid') return `sol-liquid-${pos.mint || 'native'}`;
-  if (pos.kind === 'simple-chain') return `${pos.chainId}-${pos.symbol}`;
+  // pos.pool distinguishes e.g. staked NEAR (one row per delegated validator
+  // pool) from the plain liquid-balance row, which has no pool of its own —
+  // without it they'd collide on the same id and share one hide/cost-basis entry.
+  if (pos.kind === 'simple-chain') return `${pos.chainId}-${pos.symbol}${pos.pool ? `-${pos.pool}` : ''}`;
   if (pos.kind === 'manual') return `manual-${pos.manualId}`;
   return `wallet-${pos.contractAddress || pos.symbol}`;
 }
