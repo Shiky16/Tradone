@@ -803,17 +803,31 @@ async function getFirstReceivedDates(address) {
 // contracts than fit in one URL, so addresses are chunked rather than joined
 // into a single unbounded query string.
 const TOKEN_PRICE_CHUNK_SIZE = 100;
+// A handful of chunks in flight at once — enough that a wallet with
+// thousands of held contracts (spam/airdrops) doesn't pay for every chunk
+// sequentially, while staying well under CoinGecko's demo-tier rate limit.
+const TOKEN_PRICE_CONCURRENCY = 4;
 
 async function getCoingeckoTokenPrices(platformId, contractAddresses) {
   if (!contractAddresses.length) return {};
-  const results = {};
+  const chunks = [];
   for (let i = 0; i < contractAddresses.length; i += TOKEN_PRICE_CHUNK_SIZE) {
-    const chunk = contractAddresses.slice(i, i + TOKEN_PRICE_CHUNK_SIZE);
-    try {
-      const res = await fetch(`${COINGECKO}/simple/token_price/${platformId}?contract_addresses=${chunk.join(',')}&vs_currencies=usd&x_cg_demo_api_key=${COINGECKO_API_KEY}`);
-      Object.assign(results, await res.json());
-    } catch { /* this chunk's prices stay unknown rather than failing the whole batch */ }
+    chunks.push(contractAddresses.slice(i, i + TOKEN_PRICE_CHUNK_SIZE));
   }
+
+  const results = {};
+  let next = 0;
+  async function worker() {
+    while (next < chunks.length) {
+      const chunk = chunks[next++];
+      try {
+        const res = await fetch(`${COINGECKO}/simple/token_price/${platformId}?contract_addresses=${chunk.join(',')}&vs_currencies=usd&x_cg_demo_api_key=${COINGECKO_API_KEY}`);
+        Object.assign(results, await res.json());
+      } catch { /* this chunk's prices stay unknown rather than failing the whole batch */ }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(TOKEN_PRICE_CONCURRENCY, chunks.length) }, worker));
+
   return results;
 }
 
